@@ -331,6 +331,7 @@ class Generator extends \yii\gii\generators\crud\Generator
                     $types['boolean'][] = $column->name;
                     break;
                 case Schema::TYPE_FLOAT:
+                case Schema::TYPE_DOUBLE:
                 case Schema::TYPE_DECIMAL:
                 case Schema::TYPE_MONEY:
                     $types['number'][] = $column->name;
@@ -419,6 +420,7 @@ class Generator extends \yii\gii\generators\crud\Generator
                 case Schema::TYPE_BIGINT:
                 case Schema::TYPE_BOOLEAN:
                 case Schema::TYPE_FLOAT:
+                case Schema::TYPE_DOUBLE:
                 case Schema::TYPE_DECIMAL:
                 case Schema::TYPE_MONEY:
                 case Schema::TYPE_DATE:
