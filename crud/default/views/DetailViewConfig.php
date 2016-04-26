@@ -8,6 +8,24 @@ use yii\helpers\StringHelper;
  * @var yii\gii\generators\crud\Generator $generator
  */
 
+/**
+ * Require CSS in layout main with code bellow
+ *
+ * if (in_array(yii::$app->controller->action->id, ['create','view']))
+ *     $this->registerCssFile($directoryAsset . "/css/layouts/form-kartik-detailview.css");
+ *
+ * OR add
+ *
+ * .kv-col-label {
+ *   width: 15%;
+ *   text-align: right;
+ *   vertical-align: middle;
+ * }
+ * .kv-col-value1 { width: 85%; }
+ * .kv-col-value2 { width: 35%; }
+ * .kv-attribute { word-break: break-word; }
+ */
+
 echo "<?php\n";
 ?>
 
@@ -23,6 +41,10 @@ $divideGraterFields = 9;
 $attrSize = sizeof($model->attributes());
 $column2Enable = $attrSize > $divideGraterFields;
 
+$commonAttr = "'attribute' => '%s',
+                'labelColOptions' => ['class' => 'kv-col-label'],
+                'valueColOptions' => ['class' => '%s'],%s";
+
 $strTpl = [
 
     'column' => "
@@ -30,53 +52,65 @@ $strTpl = [
         'columns' => [%s\n        ],
     ],",
 
-    // Default No column
-    'default' => "\n    '%s',",
+    # Default No column
+    ## 'default' => "\n    'columnName:format',",
+    // 'default' => "\n    '%s',",
 
     'defaultInCol' => "
             [
-                'attribute' => '%s',
-                'valueColOptions' => ['style' => 'width: %s'],
+                %s
             ],",
 
     'displayOnly' => "
             [
-                'attribute' => '%s',
-                'valueColOptions' => ['style' => 'width: %s'],
+                %s
                 'displayOnly' => true,
             ],",
 
     'datetime' => "
             [
-                'attribute' => '%s',
-                'valueColOptions' => ['style' => 'width: %s'],
+                %s
                 'type' => DetailView::INPUT_WIDGET,
                 'widgetOptions' => [
                     'class' => DateControl::classname(),
                     'type' => DateControl::FORMAT_%s
                 ],
                 'format' => [
-                    '%s', (isset(Yii::\$app-> modules['datecontrol']['displaySettings']['%s']))
+                    '%s', isset(Yii::\$app-> modules['datecontrol']['displaySettings']['%s'])
                         ? Yii::\$app->modules['datecontrol']['displaySettings']['%s']
                         : '%s'
                 ],
                 'displayOnly' => %s,
             ],",
 
-    'enum' => "
+    'switch' => "
             [
-                'attribute' => '%s',
-                'valueColOptions' => ['style' => 'width: %s'],
+                %s
+                'type' => DetailView::INPUT_SWITCH,
+                'format' => 'raw',
+                'value' => \$model->%s
+                    ? '<span class=\"label label-success\">%s</span>'
+                    : '<span class=\"label label-danger\">%s</span>',
+                'widgetOptions' => [
+                    'pluginOptions' => [
+                        'onText' => '%s',
+                        'offText' => '%s',
+                    ]
+                ],
+            ],",
+
+    'dropdown' => "
+            [
+                %s
                 'type' => DetailView::INPUT_DROPDOWN_LIST,
                 'items' => [%s],
             ],",
 
     'image' => "
             [
-                'attribute' => '%s',
-                'valueColOptions' => ['style' => 'width: %s'],
-                'format' => ['image', ['style' => 'max-width: 80px; max-height: 80px;']],
+                %s
                 'type' => DetailView::INPUT_FILEINPUT,
+                'format' => ['image', ['style' => 'max-height: 120px;']],
                 'widgetOptions' => [
                     'pluginOptions' => [
                         'overwriteInitial' => false,
@@ -94,6 +128,15 @@ $strTpl = [
                 ],
             ],",
 
+    'text' => "
+            [
+                %s
+                'type' => DetailView::INPUT_TEXTAREA,
+                'options' => ['rows' => 3],
+                'format' => 'raw',
+                'value' => '<span class=\"text-justify\">' . \$model->%s . '</span>',
+            ],",
+
 ];
 
 echo '$detailViewConfig = [';
@@ -106,53 +149,81 @@ if (($tableSchema = $generator->getTableSchema()) === false) {
     $count = 1;
     $col1 = '';
     foreach ($generator->getTableSchema()->columns as $column):
-        $colWidth = '80%';
+        $colValueClass = '1';
         if ($column2Enable) {
-            $colWidth = ($count % 2 == 1 && $count == $attrSize) ? '80%' : '30%';
+            $colValueClass = ($count % 2 == 1 && $count == $attrSize) ? 'kv-col-value1' : 'kv-col-value2';
         }
 
-        $strColumn = '';
+        $strColumn = $defaultValue = '';
+
+        if (!empty($column->defaultValue)) {
+            $defaultValue = "\n                // Default value in DB is '" . $column->defaultValue . "'";
+        }
+
+        $commonValue = sprintf($commonAttr, $column->name, $colValueClass, $defaultValue);
 
         if (!(stripos($column->name, 'create_by') === false) || !(stripos($column->name, 'update_by') === false)) {
-            $strColumn = sprintf($strTpl['displayOnly'], $column->name, $colWidth);
+            $strColumn = sprintf($strTpl['displayOnly'], $commonValue);
         } elseif (!(stripos($column->name, 'create_date') === false) || !(stripos($column->name, 'update_date') === false)) {
             $strColumn = sprintf(
                 $strTpl['datetime'],
-                $column->name, $colWidth, 'DATETIME', 'datetime', 'datetime', 'datetime', 'd-m-Y H:i:s A', 'true'
+                $commonValue, 'DATETIME', 'datetime', 'datetime', 'datetime', 'd-m-Y H:i:s A', 'true'
             );
         } elseif ($column->type === 'date') {
             $strColumn = sprintf(
                 $strTpl['datetime'],
-                $column->name, $colWidth, 'DATE', 'date', 'date', 'date', 'd-m-Y', 'false'
+                $commonValue, 'DATE', 'date', 'date', 'date', 'd-m-Y', 'false'
             );
         } elseif ($column->type === 'time') {
             $strColumn = sprintf(
                 $strTpl['datetime'],
-                $column->name, $colWidth, 'TIME', 'time', 'time', 'time', 'H:i:s A', 'false'
+                $commonValue, 'TIME', 'time', 'time', 'time', 'H:i:s A', 'false'
             );
         } elseif ($column->type === 'datetime' || $column->type === 'timestamp') {
             $strColumn = sprintf(
                 $strTpl['datetime'],
-                $column->name, $colWidth, 'DATETIME', 'datetime', 'datetime', 'datetime', 'd-m-Y H:i:s A', 'false'
+                $commonValue, 'DATETIME', 'datetime', 'datetime', 'datetime', 'd-m-Y H:i:s A', 'false'
+            );
+        } elseif ($column->type === 'text') {
+            $strColumn = sprintf(
+                $strTpl['text'],
+                $commonValue, $column->name
             );
         } elseif (is_array($column->enumValues)) {
-            $arrEnum = $model->getTableSchema()->columns[$column->name]->enumValues;
+            // if($column->name=='reviewer') {echo "<pre>";print_r($column);exit;}
+            if (sizeof($column->enumValues) == 2) {
+                $arrEnum = $model->getTableSchema()->columns[$column->name]->enumValues;
 
-            $strTemp = '';
-            foreach ($arrEnum as $key => $value) {
-                $strTemp .= "'$value' => " . (is_numeric($value) ? $value : "'$value'") . ", ";
+                $onText = $arrEnum[0];
+                $offText = $arrEnum[1];
+
+                $strColumn = sprintf($strTpl['switch'], $commonValue, $column->name, $onText, $offText, $onText, $offText);
+            } else {
+                $arrEnum = $model->getTableSchema()->columns[$column->name]->enumValues;
+
+                $strTemp = ' ';
+                foreach ($arrEnum as $value) {
+                    $strTemp .= "'$value' => " . (is_numeric($value) ? $value : "'$value'") . ", ";
+                }
+
+                $strColumn = sprintf($strTpl['dropdown'], $commonValue, $strTemp);
             }
-
-            $strColumn = sprintf($strTpl['enum'], $column->name, $colWidth, $strTemp);
-        } elseif (((stripos($column->name, '_id') === false) && (stripos($column->name, 'type') === false))
-            && (!(stripos($column->name, 'image') === false) || !(stripos($column->name, 'file') === false))
+        } elseif (
+            stripos($column->name, '_id') === false
+            && stripos($column->name, 'type') === false
+            && (
+                !(stripos($column->name, 'pic') === false)
+                || !(stripos($column->name, 'img') === false)
+                || !(stripos($column->name, 'image') === false)
+                || !(stripos($column->name, 'file') === false)
+            )
         ) {
             $strColumn = sprintf(
                 $strTpl['image'],
-                $column->name, $colWidth, $column->name, $column->name, $column->name
+                $commonValue, $column->name, $column->name, $column->name
             );
-        } elseif ($column2Enable) {
-            $strColumn = sprintf($strTpl['defaultInCol'], $column->name, $colWidth);
+        } else {
+            $strColumn = sprintf($strTpl['defaultInCol'], $commonValue);
         }
 
         if ($column2Enable) {
@@ -165,12 +236,7 @@ if (($tableSchema = $generator->getTableSchema()) === false) {
                 $col1 = $strColumn;
             }
         } else {
-            if (empty($strColumn)) {
-                $format = $generator->generateColumnFormat($column);
-                echo sprintf($strTpl['default'], $column->name . ($format === 'text' ? '' : ":$format"));
-            } else {
-                echo sprintf($strTpl['column'], $strColumn);
-            }
+            echo sprintf($strTpl['column'], $strColumn);
         }
 
         $count++;
