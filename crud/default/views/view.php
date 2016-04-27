@@ -43,10 +43,6 @@ require 'DetailViewConfig.php';
         'attributes' => $detailViewConfig,
         'deleteOptions' => [
             'url' => ['delete', 'id' => $model-><?=$generator->getTableSchema()->primaryKey[0]?>],
-            'data' => [
-                'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
-                'method' => 'post',
-            ],
         ],
         'enableEditMode' => true,
     ]) ?>
